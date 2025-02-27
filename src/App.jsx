@@ -2,7 +2,9 @@ import { useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
-import InvoiceGenerator from './components/InvoiceGenerator'
+import Invoice from './components/Invoice'
+// import InvoiceGenerator from './components/InvoiceGenerator'
+// import ACServiceInvoice from './components/ACServiceInvoice'
 
 function App() {
   const [count, setCount] = useState(0)
@@ -10,7 +12,9 @@ function App() {
   return (
     <>
       
-      < InvoiceGenerator/>
+      {/* < InvoiceGenerator/> */}
+      {/* < ACServiceInvoice/> */}
+      < Invoice/>
     </>
   )
 }

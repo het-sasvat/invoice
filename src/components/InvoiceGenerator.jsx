@@ -85,6 +85,6 @@ const InvoiceGenerator = () => {
       </div>
     </div>
   );
-};++
+}
 
 export default InvoiceGenerator;
