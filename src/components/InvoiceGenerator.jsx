@@ -15,7 +15,7 @@ const InvoiceGenerator = () => {
       state: "Gujarat",
       pincode: "",
       placeOfSupply: "24-GUJARAT",
-    },
+    },     
     items: [],
   });
 
