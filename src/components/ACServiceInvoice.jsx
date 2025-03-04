@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import logo from "../assets/logo.svg";
 
 const ACServiceInvoice = () => {
   const [previewMode, setPreviewMode] = useState(false);
@@ -228,7 +229,7 @@ const ACServiceInvoice = () => {
         <div className="flex justify-between mb-8 p-10">
           {/* Left Side */}
           <div className="flex items-center">
-            <img src="./src/assets/logo.svg" alt="Logo" className="w-72 h-auto mr-4" />
+            <img src={logo} alt="Logo" className="w-72 h-auto mr-4" />
             <div className='ml-9'>
               <h1 className="text-2xl font-bold text-[#1970AC] ">Shivkrupa AC Sales & Service</h1>
               <p className="">
