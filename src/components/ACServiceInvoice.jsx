@@ -5,144 +5,109 @@ import html2canvas from 'html2canvas';
 const ACServiceInvoice = () => {
   const [previewMode, setPreviewMode] = useState(false);
   const [invoiceDetails, setInvoiceDetails] = useState({
-    invoiceNumber: '', 
-    invoiceDate: '', 
-    dueDate: '',
-    // gstNumber: '',  // Added GST number field
-    // placeOfSupply: '' // State code for GST place of supply
+    invoiceNumber: '', invoiceDate: '', dueDate: '', gstPercentage: '18'
   });
   const [billTo, setBillTo] = useState({
-    name: '', 
-    companyName: '', 
-    address1: '', 
-    address2: '', 
-    address3: '',
-    customerGst: '' // Customer's GST number
+    name: '', companyName: '', address1: '', address2: '', address3: '',
+    gstin: '', placeOfSupply: ''
   });
   const [shippingAddress, setShippingAddress] = useState({
-    name: '', 
-    companyName: '', 
-    address1: '', 
-    address2: '', 
-    address3: '', 
-    contactPerson: '', 
-    phoneNumber: ''
+    name: '', companyName: '', address1: '', address2: '', address3: '',
+    contactPerson: '', phoneNumber: ''
   });
   const [items, setItems] = useState([
-    { 
-      id: 1, 
-      description: '', 
-      hsnSac: '', 
-      quantity: '', 
-      rate: '', 
-      gstRate: '18', // Default GST rate
-      gstType: 'inclusive', // GST inclusive or exclusive
-      cgst: '',
-      sgst: '',
-      igst: '',
-      amount: '' 
-    }
+    { id: 1, description: '', hsnSac: '', quantity: '', rate: '', taxableValue: '', gst: '', total: '' }
   ]);
   
   const invoiceRef = useRef(null);
 
-  // Generic handler for form inputs
-  const handleChange = (setter, obj) => (e) => {
+  // Handlers
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setter({...obj, [name]: value});
+    setInvoiceDetails(prev => ({ ...prev, [name]: value }));
+    if (name === 'gstPercentage') recalculateAllItems(value);
   };
 
-  // Handler for item changes with automatic GST calculation
-  const handleItemChange = (index, field, value) => {
-    const newItems = [...items];
-    const currentItem = {...newItems[index], [field]: value};
-    newItems[index] = currentItem;
-    
-    // Recalculate amount and GST if quantity, rate, or GST-related fields change
-    if (['quantity', 'rate', 'gstRate', 'gstType'].includes(field)) {
-      const qty = parseFloat(currentItem.quantity) || 0;
-      const rate = parseFloat(currentItem.rate) || 0;
-      const gstRate = parseFloat(currentItem.gstRate) || 0;
-      
-      // Calculate base amount and GST
-      let baseAmount, totalGst, amount;
-      
-      if (currentItem.gstType === 'inclusive') {
-        // For GST inclusive: Base amount = total / (1 + gstRate/100)
-        totalGst = (rate * qty * gstRate) / (100 + gstRate);
-        baseAmount = (rate * qty) - totalGst;
-        amount = rate * qty;
-      } else {
-        // For GST exclusive: GST = base amount * (gstRate/100)
-        baseAmount = rate * qty;
-        totalGst = baseAmount * (gstRate / 100);
-        amount = baseAmount + totalGst;
-      }
-      
-      // Determine if IGST or CGST+SGST based on place of supply
-      // If place of supply is same as business state, apply CGST+SGST, else IGST
-      const isInterState = invoiceDetails.placeOfSupply !== '24'; // Assuming 24 is Gujarat code
-      
-      let cgst = 0, sgst = 0, igst = 0;
-      if (isInterState) {
-        igst = totalGst;
-      } else {
-        cgst = totalGst / 2;
-        sgst = totalGst / 2;
-      }
-      
-      newItems[index] = {
-        ...currentItem,
-        baseAmount: baseAmount.toFixed(2),
-        cgst: cgst.toFixed(2),
-        sgst: sgst.toFixed(2),
-        igst: igst.toFixed(2),
-        amount: amount.toFixed(2)
+  const recalculateAllItems = (gstPercentage) => {
+    const gstRate = parseFloat(gstPercentage) / 100 || 0;
+    const newItems = items.map(item => {
+      const qty = parseFloat(item.quantity) || 0;
+      const rate = parseFloat(item.rate) || 0;
+      const taxableValue = qty * rate;
+      const gst = taxableValue * gstRate;
+      return {
+        ...item,
+        taxableValue: taxableValue.toFixed(2),
+        gst: gst.toFixed(2),
+        total: (taxableValue + gst).toFixed(2)
       };
-    }
-    
+    });
     setItems(newItems);
   };
 
-  // Item management functions
+  const handleAddressChange = (setter) => (e) => {
+    const { name, value } = e.target;
+    setter(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleItemChange = (index, field, value) => {
+    const newItems = [...items];
+    newItems[index] = { ...newItems[index], [field]: value };
+
+    if (field === 'quantity' || field === 'rate') {
+      const qty = parseFloat(field === 'quantity' ? value : newItems[index].quantity) || 0;
+      const rate = parseFloat(field === 'rate' ? value : newItems[index].rate) || 0;
+      const taxableValue = qty * rate;
+      const gstRate = parseFloat(invoiceDetails.gstPercentage) / 100 || 0;
+      const gst = taxableValue * gstRate;
+      
+      newItems[index] = {
+        ...newItems[index],
+        taxableValue: taxableValue.toFixed(2),
+        gst: gst.toFixed(2),
+        total: (taxableValue + gst).toFixed(2)
+      };
+    }
+    setItems(newItems);
+  };
+
   const addNewItem = () => {
-    setItems([...items, { 
-      id: items.length + 1, 
-      description: '', 
-      hsnSac: '', 
-      quantity: '', 
-      rate: '', 
-      gstRate: '18', 
-      gstType: 'inclusive', 
-      cgst: '',
-      sgst: '',
-      igst: '',
-      amount: '' 
+    setItems([...items, {
+      id: items.length + 1, description: '', hsnSac: '', quantity: '',
+      rate: '', taxableValue: '', gst: '', total: ''
     }]);
   };
-  
+
   const removeItem = (index) => {
-    setItems(items.filter((_, i) => i !== index).map((item, i) => ({ ...item, id: i + 1 })));
+    const newItems = items.filter((_, i) => i !== index);
+    setItems(newItems.map((item, i) => ({ ...item, id: i + 1 })));
   };
-  
-  // Calculations and formatting
-  const calculateSubtotal = () => items.reduce((total, item) => {
-    const baseAmount = parseFloat(item.baseAmount || 0);
-    return total + baseAmount;
-  }, 0);
-  
-  const calculateTotalCGST = () => items.reduce((total, item) => total + parseFloat(item.cgst || 0), 0);
-  const calculateTotalSGST = () => items.reduce((total, item) => total + parseFloat(item.sgst || 0), 0);
-  const calculateTotalIGST = () => items.reduce((total, item) => total + parseFloat(item.igst || 0), 0);
-  const calculateTotal = () => items.reduce((total, item) => total + parseFloat(item.amount || 0), 0);
-  
-  const formatDate = (dateString) => dateString ? new Date(dateString).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
-  const formatCurrency = (value) => parseFloat(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+
+  const calculateTotals = () => {
+    const totals = items.reduce((acc, item) => ({
+      taxableAmount: acc.taxableAmount + (parseFloat(item.taxableValue) || 0),
+      gst: acc.gst + (parseFloat(item.gst) || 0),
+      total: acc.total + (parseFloat(item.total) || 0)
+    }), { taxableAmount: 0, gst: 0, total: 0 });
+
+    return {
+      ...totals,
+      cgst: totals.gst / 2,
+      sgst: totals.gst / 2
+    };
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
 
   // PDF Download Handler
   const handleDownloadPDF = () => {
     if (!invoiceRef.current) return;
     
+    // Setting background and scaling for better quality
     html2canvas(invoiceRef.current, {
       scale: 2,
       useCORS: true,
@@ -150,53 +115,77 @@ const ACServiceInvoice = () => {
       backgroundColor: '#FFFFFF'
     }).then(canvas => {
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('portrait', 'mm', 'a4');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
       
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const ratio = Math.min(pdfWidth / canvas.width, pdfHeight / canvas.height);
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
       
-      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width * ratio, canvas.height * ratio);
+      // Calculate the ratio while accounting for margins
+      const margin = 0; // Set this to 0 to remove margins
+      const availableWidth = pdfWidth - (2 * margin);
+      const availableHeight = pdfHeight - (2 * margin);
+      const ratio = Math.min(availableWidth / imgWidth, availableHeight / imgHeight);
+      
+      // Position the image at the margins
+      const imgX = margin;
+      const imgY = margin;
+      
+      // Calculate the new dimensions
+      const newImgWidth = imgWidth * ratio;
+      const newImgHeight = imgHeight * ratio;
+      
+      pdf.addImage(imgData, 'PNG', imgX, imgY, newImgWidth, newImgHeight);
       pdf.save(`Invoice-${invoiceDetails.invoiceNumber || 'Draft'}.pdf`);
     });
-  };
+  }; 
 
-  // Reusable components
+  // Components
   const AddressDisplay = ({ data }) => (
     <div>
       <p className="font-medium">{data.name}</p>
       {data.companyName && <p>{data.companyName}</p>}
-      {data.customerGst && <p><span className="text-gray-600">GSTIN:</span> {data.customerGst}</p>}
       {data.address1 && <p>{data.address1}</p>}
       {data.address2 && <p>{data.address2}</p>}
       {data.address3 && <p>{data.address3}</p>}
+      {data.gstin && <p><span className="text-gray-600">GSTIN:</span> {data.gstin}</p>}
+      {data.placeOfSupply && <p><span className="text-gray-600">Place of Supply:</span> {data.placeOfSupply}</p>}
       {data.contactPerson && <p><span className="text-gray-600">Contact Person:</span> {data.contactPerson}</p>}
       {data.phoneNumber && <p><span className="text-gray-600">Phone:</span> {data.phoneNumber}</p>}
     </div>
   );
 
-  const InputField = ({ label, name, value, onChange, type = "text", placeholder }) => (
-    <div>
-      <label className="block text-sm text-gray-600">{label}</label>
-      <input
-        type={type}
-        name={name}
-        value={value}
-        onChange={onChange}
-        className="border rounded px-2 py-1 w-full"
-        placeholder={placeholder}
-      />
+  const AddressForm = ({ data, onChange, fields }) => (
+    <div className="space-y-2">
+      {fields.map(field => (
+        <div key={field.name}>
+          <label className="block text-sm text-gray-600">{field.label}</label>
+          <input
+            type="text"
+            name={field.name}
+            value={data[field.name]}
+            onChange={onChange}
+            className="border rounded px-2 py-1 w-full"
+            placeholder={field.placeholder}
+          />
+        </div>
+      ))}
     </div>
   );
 
-  // Address field configurations
   const billToFields = [
     { name: 'name', label: 'Customer Name', placeholder: 'Customer Name' },
     { name: 'companyName', label: 'Company Name', placeholder: 'Company Name' },
-    { name: 'customerGst', label: 'GSTIN', placeholder: 'Customer GSTIN' },
     { name: 'address1', label: 'Address Line 1', placeholder: 'Address Line 1' },
     { name: 'address2', label: 'Address Line 2', placeholder: 'Address Line 2' },
-    { name: 'address3', label: 'Address Line 3', placeholder: 'City, State, Pincode' }
+    { name: 'address3', label: 'Address Line 3', placeholder: 'City, State, Pincode' },
+    { name: 'gstin', label: 'GSTIN', placeholder: 'GSTIN' },
+    { name: 'placeOfSupply', label: 'Place of Supply', placeholder: 'Place of Supply' }
   ];
 
   const shippingFields = [
@@ -221,7 +210,10 @@ const ACServiceInvoice = () => {
         </button>
         
         {previewMode && (
-          <button onClick={handleDownloadPDF} className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 flex items-center">
+          <button
+            onClick={handleDownloadPDF}
+            className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 flex items-center"
+          >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
@@ -234,77 +226,82 @@ const ACServiceInvoice = () => {
       <div ref={invoiceRef}>
         {/* Header */}
         <div className="flex justify-between mb-8 p-10">
-          {/* Company Info */}
+          {/* Left Side */}
           <div className="flex items-center">
             <img src="src\assets\logo.svg" alt="Logo" className="w-72 h-auto mr-4" />
-            <div className="ml-9">
-              <h1 className="text-2xl font-bold text-[#1970AC]">Shivkrupa AC Sales & Service</h1>
-              <p>
+            <div className='ml-9'>
+              <h1 className="text-2xl font-bold text-[#1970AC] ">Shivkrupa AC Sales & Service</h1>
+              <p className="">
                 52, 1st Floor, Indrajitbag Co-op. H.Soc.,<br />
                 Opp. Diamond Silk Mills, Nikol Road,<br />
                 Thakkarbapa Nagar, Ahmedabad, Gujarat, 382350
               </p>
+              <p className="mt-2">GSTIN: 24CDDPG6235K1ZM</p>
               <p>Mobile: 8238638933</p>
-              {previewMode ? (
-                <p><span className="font-medium">GSTIN:</span> {invoiceDetails.gstNumber}</p>
-              ) : null}
             </div>
           </div>
 
-          {/* Invoice Details */}
+          {/* Right Side */}
           <div className="text-right">
-            <h2 className="text-xl font-bold mb-4">TAX INVOICE</h2> {/* Changed to TAX INVOICE */}
-            {previewMode ? (
-              <div className="flex flex-col gap-2">
-                <div><span className="text-gray-600">Invoice #:</span> <span className="font-medium">{invoiceDetails.invoiceNumber}</span></div>
-                <div><span className="text-gray-600">Date:</span> <span className="font-medium">{formatDate(invoiceDetails.invoiceDate)}</span></div>
-                <div><span className="text-gray-600">Due Date:</span> <span className="font-medium">{formatDate(invoiceDetails.dueDate)}</span></div>
-                {/* <div><span className="text-gray-600">Place of Supply:</span> <span className="font-medium">{invoiceDetails.placeOfSupply}</span></div> */}
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {[
-                  { field: 'invoiceNumber', label: 'Invoice #:', type: 'text' },
-                  { field: 'invoiceDate', label: 'Date:', type: 'date' },
-                  { field: 'dueDate', label: 'Due Date:', type: 'date' },
-                  { field: 'gstNumber', label: 'GSTIN:', type: 'text' },
-                  { field: 'placeOfSupply', label: 'Place of Supply:', type: 'text', placeholder: 'State Code (e.g. 24 for Gujarat)' }
-                ].map(({ field, label, type, placeholder }) => (
-                  <div key={field} className="flex items-center justify-end gap-2">
-                    <label className="text-gray-600">{label}</label>
-                    <input
-                      type={type}
-                      name={field}
-                      value={invoiceDetails[field]}
-                      onChange={handleChange(setInvoiceDetails, invoiceDetails)}
-                      className="border rounded px-2 py-1 w-40"
-                      placeholder={placeholder}
-                    />
+            <h2 className="text-xl font-bold mb-4">TAX INVOICE</h2>
+            <div className="flex flex-col gap-2">
+              {previewMode ? (
+                <>
+                  <div className="flex items-center justify-end gap-2">
+                    <span className="text-gray-600">Invoice #:</span>
+                    <span className="font-medium">{invoiceDetails.invoiceNumber}</span>
                   </div>
-                ))}
-              </div>
-            )}
+                  <div className="flex items-center justify-end gap-2">
+                    <span className="text-gray-600">Date:</span>
+                    <span className="font-medium">{formatDate(invoiceDetails.invoiceDate)}</span>
+                  </div>
+                  <div className="flex items-center justify-end gap-2">
+                    <span className="text-gray-600">Due Date:</span>
+                    <span className="font-medium">{formatDate(invoiceDetails.dueDate)}</span>
+                  </div>
+                  <div className="flex items-center justify-end gap-2">
+                    <span className="text-gray-600">GST Rate:</span>
+                    <span className="font-medium">{invoiceDetails.gstPercentage}%</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {['invoiceNumber', 'invoiceDate', 'dueDate', 'gstPercentage'].map(field => (
+                    <div key={field} className="flex items-center justify-end gap-2">
+                      <label className="text-gray-600">
+                        {field === 'invoiceNumber' ? 'Invoice #:' : 
+                        field === 'invoiceDate' ? 'Date:' : 
+                        field === 'dueDate' ? 'Due Date:' : 'GST %:'}
+                      </label>
+                      <input
+                        type={field.includes('Date') ? 'date' : field === 'gstPercentage' ? 'number' : 'text'}
+                        name={field}
+                        value={invoiceDetails[field]}
+                        onChange={handleInputChange}
+                        className="border rounded px-2 py-1 w-32"
+                        placeholder={field === 'invoiceNumber' ? 'Enter number' : field === 'gstPercentage' ? 'GST Percentage' : ''}
+                      />
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Bill To and Shipping Address Section */}
-        <div className="mb-8 grid grid-cols-2 gap-4 px-5">
+        <div className="mb-8 grid grid-cols-2 gap-4 pl-5 pr-5">
           {/* Bill To Section */}
           <div className="p-4 bg-gray-50 rounded-lg">
             <h3 className="font-bold mb-4">Bill To:</h3>
             {previewMode ? (
               <AddressDisplay data={billTo} />
             ) : (
-              <div className="space-y-2">
-                {billToFields.map(field => (
-                  <InputField
-                    key={field.name}
-                    {...field}
-                    value={billTo[field.name]}
-                    onChange={handleChange(setBillTo, billTo)}
-                  />
-                ))}
-              </div>
+              <AddressForm 
+                data={billTo} 
+                onChange={handleAddressChange(setBillTo)} 
+                fields={billToFields} 
+              />
             )}
           </div>
 
@@ -314,43 +311,28 @@ const ACServiceInvoice = () => {
             {previewMode ? (
               <AddressDisplay data={shippingAddress} />
             ) : (
-              <div className="space-y-2">
-                {shippingFields.map(field => (
-                  <InputField
-                    key={field.name}
-                    {...field}
-                    value={shippingAddress[field.name]}
-                    onChange={handleChange(setShippingAddress, shippingAddress)}
-                  />
-                ))}
-              </div>
+              <AddressForm 
+                data={shippingAddress} 
+                onChange={handleAddressChange(setShippingAddress)} 
+                fields={shippingFields} 
+              />
             )}
           </div>
         </div>
 
         {/* Invoice Items Table */}
-        <div className="mb-8 overflow-x-auto px-5">
+        <div className="mb-8 overflow-x-auto pl-5 pr-5">
           <table className="w-full">
-            <thead className="bg-gray-100">
+            <thead className="bg-gray-100 mb-2">
               <tr>
-                <th className="px-4 py-2 text-left">#</th>
-                <th className="px-4 py-2 text-left">Item Description</th>
-                <th className="px-4 py-2 text-left">HSN/SAC</th>
-                <th className="px-4 py-2 text-right">Qty</th>
-                <th className="px-4 py-2 text-right">Rate</th>
-                {previewMode && (
-                  <>
-                    <th className="px-4 py-2 text-right">Taxable</th>
-                    <th className="px-4 py-2 text-right">GST</th>
-                  </>
-                )}
-                {!previewMode && (
-                  <>
-                    <th className="px-4 py-2 text-center">GST %</th>
-                    <th className="px-4 py-2 text-center">Type</th>
-                  </>
-                )}
-                <th className="px-4 py-2 text-right">Amount</th>
+                <th className="px-4 py-2 mb-4 text-left">#</th>
+                <th className="px-4 py-2 mb-2 text-left">Item Description</th>
+                <th className="px-4 py-2 mb-2 text-left">HSN/SAC</th>
+                <th className="px-4 py-2 mb-2 text-right">Qty</th>
+                <th className="px-4 py-2 mb-2 text-right">Rate</th>
+                <th className="px-4 py-2 mb-2 text-right">Taxable Value</th>
+                <th className="px-4 py-2 mb-2 text-right">GST</th>
+                <th className="px-4 py-2 mb-2 text-right">Total</th>
                 {!previewMode && <th className="px-4 py-2 text-center">Action</th>}
               </tr>
             </thead>
@@ -363,89 +345,41 @@ const ACServiceInvoice = () => {
                       <td className="px-4 py-2">{item.description}</td>
                       <td className="px-4 py-2">{item.hsnSac}</td>
                       <td className="px-4 py-2 text-right">{item.quantity}</td>
-                      <td className="px-4 py-2 text-right">₹{formatCurrency(item.rate)}</td>
-                      <td className="px-4 py-2 text-right">₹{formatCurrency(item.baseAmount)}</td>
-                      <td className="px-4 py-2 text-right">
-                        {parseFloat(item.cgst) > 0 ? (
-                          <>CGST: ₹{formatCurrency(item.cgst)}<br />SGST: ₹{formatCurrency(item.sgst)}</>
-                        ) : (
-                          <>IGST: ₹{formatCurrency(item.igst)}</>
-                        )}
-                      </td>
+                      <td className="px-4 py-2 text-right">₹{parseFloat(item.rate || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     </>
                   ) : (
                     <>
                       <td className="px-4 py-2">
-                        <input 
-                          type="text" 
-                          value={item.description} 
-                          onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                          className="border rounded px-2 py-1 w-full" 
-                          placeholder="Enter description" 
-                        />
+                        <input type="text" value={item.description} onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                          className="border rounded px-2 py-1 w-full mb-2" placeholder="Enter description" />
                       </td>
                       <td className="px-4 py-2">
-                        <input 
-                          type="text" 
-                          value={item.hsnSac} 
-                          onChange={(e) => handleItemChange(index, 'hsnSac', e.target.value)}
-                          className="border rounded px-2 py-1 w-24" 
-                          placeholder="HSN/SAC" 
-                        />
+                        <input type="text" value={item.hsnSac} onChange={(e) => handleItemChange(index, 'hsnSac', e.target.value)}
+                          className="border rounded px-2 py-1 w-24" placeholder="HSN/SAC" />
                       </td>
                       <td className="px-4 py-2">
-                        <input 
-                          type="number" 
-                          value={item.quantity} 
-                          onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                          className="border rounded px-2 py-1 w-20 text-right" 
-                          placeholder="Qty" 
-                        />
+                        <input type="number" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                          className="border rounded px-2 py-1 w-20 text-right" placeholder="Qty" />
                       </td>
                       <td className="px-4 py-2">
-                        <input 
-                          type="number" 
-                          value={item.rate} 
-                          onChange={(e) => handleItemChange(index, 'rate', e.target.value)}
-                          className="border rounded px-2 py-1 w-24 text-right" 
-                          placeholder="Rate" 
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <select
-                          value={item.gstRate}
-                          onChange={(e) => handleItemChange(index, 'gstRate', e.target.value)}
-                          className="border rounded px-2 py-1 w-20"
-                        >
-                          <option value="0">0%</option>
-                          <option value="5">5%</option>
-                          <option value="12">12%</option>
-                          <option value="18">18%</option>
-                          <option value="28">28%</option>
-                        </select>
-                      </td>
-                      <td className="px-4 py-2">
-                        <select
-                          value={item.gstType}
-                          onChange={(e) => handleItemChange(index, 'gstType', e.target.value)}
-                          className="border rounded px-2 py-1 w-28"
-                        >
-                          <option value="inclusive">Inclusive</option>
-                          <option value="exclusive">Exclusive</option>
-                        </select>
+                        <input type="number" value={item.rate} onChange={(e) => handleItemChange(index, 'rate', e.target.value)}
+                          className="border rounded px-2 py-1 w-24 text-right" placeholder="Rate" />
                       </td>
                     </>
                   )}
-                  <td className="px-4 py-2 text-right">₹{formatCurrency(item.amount)}</td>
+                  <td className="px-4 py-2 text-right">
+                    ₹{parseFloat(item.taxableValue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    ₹{parseFloat(item.gst || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    ₹{parseFloat(item.total || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </td>
                   {!previewMode && (
                     <td className="px-4 py-2 text-center">
-                      <button 
-                        onClick={() => removeItem(index)} 
-                        className="text-red-600 hover:text-red-800"
-                        disabled={items.length === 1}
-                      >
-                        Remove
-                      </button>
+                      <button onClick={() => removeItem(index)} className="text-red-600 hover:text-red-800"
+                        disabled={items.length === 1}>Remove</button>
                     </td>
                   )}
                 </tr>
@@ -453,52 +387,39 @@ const ACServiceInvoice = () => {
             </tbody>
           </table>
           {!previewMode && (
-            <button 
-              onClick={addNewItem} 
-              className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            >
+            <button onClick={addNewItem} className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
               Add Item
             </button>
           )}
         </div>
 
         {/* Totals */}
-        <div className="flex justify-end mb-8 px-5">
-          <div className="w-72">
-            <div className="flex justify-between py-2 border-t">
-              <span>Subtotal:</span>
-              <span>₹{formatCurrency(calculateSubtotal())}</span>
-            </div>
-            
-            {calculateTotalCGST() > 0 && (
-              <>
-                <div className="flex justify-between py-2">
-                  <span>CGST:</span>
-                  <span>₹{formatCurrency(calculateTotalCGST())}</span>
-                </div>
-                <div className="flex justify-between py-2">
-                  <span>SGST:</span>
-                  <span>₹{formatCurrency(calculateTotalSGST())}</span>
-                </div>
-              </>
-            )}
-            
-            {calculateTotalIGST() > 0 && (
-              <div className="flex justify-between py-2">
-                <span>IGST:</span>
-                <span>₹{formatCurrency(calculateTotalIGST())}</span>
+        <div className="flex justify-end mb-8 pl-5 pr-5">
+          <div className="w-64">
+            {[
+              { label: 'Taxable Amount:', value: calculateTotals().taxableAmount },
+              { label: `CGST (${parseFloat(invoiceDetails.gstPercentage)/2}%):`, value: calculateTotals().cgst },
+              { label: `SGST (${parseFloat(invoiceDetails.gstPercentage)/2}%):`, value: calculateTotals().sgst }
+            ].map((item, index) => (
+              <div key={index} className="flex justify-between py-2">
+                <span>{item.label}</span>
+                <span>₹{item.value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
-            )}
-            
-            <div className="flex justify-between py-2 font-bold border-t mt-2">
-              <span>Total Amount:</span>
-              <span>₹{formatCurrency(calculateTotal())}</span>
+            ))}
+            <div className="flex justify-between py-2 font-bold border-t">
+              <span>Total:</span>
+              <span>₹{calculateTotals().total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             </div>
           </div>
         </div>
 
         {/* Bank Details and Contact */}
-        <div className="grid grid-cols-2 gap-8 mb-8 px-5">
+        <div className="grid grid-cols-3 gap-8 mb-8 pl-5 pr-5">
+        <div>
+            {/* pyment qr */}
+            <img src="src\assets\qr.png" alt=""  
+            className='w-64' />
+          </div>
           <div>
             <h3 className="font-bold mb-2">Bank Details:</h3>
             <p>Bank: Axis Bank</p>
@@ -512,27 +433,19 @@ const ACServiceInvoice = () => {
             <p>Email: shivkrupa.ac@gmail.com</p>
             <p>Phone: +91 82386 38933</p>
           </div>
+         
         </div>
 
-        {/* Invoice notes */}
-        {/* <div className="px-5 mb-8 text-sm">
-          <h3 className="font-bold mb-2">GST Notes:</h3>
-          <div className="border-t pt-2">
-            <p>• E. & O.E. Invoice is subject to Gujarat jurisdiction.</p>
-            <p>• GST Reg No: {invoiceDetails.gstNumber}</p>
-            <p>• This is a computer-generated invoice and does not require a signature.</p>
-          </div>
-        </div> */}
-
         {/* Terms and Signature */}
-        <div className="mt-8 text-right px-5">
+        <div className="mt-8 text-right pl-5 pr-5 ">
           <p className="font-bold">For SHIVKRUPA A.C. SALES & SERVICES</p>
           <p className="mt-8 mb-10">Authorized signatory</p>
         </div>
-        <div className="text-sm text-gray-600 px-5 pb-5">
+        <div className="text-sm text-gray-600 pl-5 pr-5 pb-5">
           <h3 className="font-bold mb-2">Terms & Conditions:</h3>
           <p>All invoices are payable within 15 days from the invoice date (Net 15). The due date will be clearly mentioned on the invoice.</p>
         </div>
+       
       </div>
     </div>
   );
