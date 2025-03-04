@@ -380,14 +380,14 @@ const ACServiceInvoice = () => {
           <table className="w-full">
             <thead className="bg-gray-100">
               <tr>
-                <th className="px-4 py-2 text-left">#</th>
-                <th className="px-4 py-2 text-left">Item Description</th>
-                <th className="px-4 py-2 text-left">HSN/SAC</th>
-                <th className="px-4 py-2 text-right">Qty</th>
-                <th className="px-4 py-2 text-right">Rate</th>
-                <th className="px-4 py-2 text-right">Taxable Value</th>
-                <th className="px-4 py-2 text-right">GST</th>
-                <th className="px-4 py-2 text-right">Total</th>
+                <th className="px-4 py-2 pb-4 text-left">#</th>
+                <th className="px-4 py-2 pb-4 text-left">Item Description</th>
+                <th className="px-4 py-2 pb-4 text-left">HSN/SAC</th>
+                <th className="px-4 py-2 pb-4  text-right">Qty</th>
+                <th className="px-4 py-2 pb-4 text-right">Rate</th>
+                <th className="px-4 py-2 pb-4 text-right">Taxable Value</th>
+                <th className="px-4 py-2 pb-4 text-right">GST</th>
+                <th className="px-4 py-2 pb-4 text-right">Total</th>
                 {!previewMode && <th className="px-4 py-2 text-center">Action</th>}
               </tr>
             </thead>
