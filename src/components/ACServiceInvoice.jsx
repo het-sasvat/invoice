@@ -416,7 +416,7 @@ const ACServiceInvoice = () => {
         {/* Bank Details and Contact */}
         <div className="grid grid-cols-3 gap-8 mb-8 pl-5 pr-5">
         <div>
-            {/* pyment qr */}
+            {/* payment qr */}
             <img src="src\assets\qr.png" alt=""  
             className='w-64' />
           </div>
