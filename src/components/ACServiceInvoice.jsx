@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import logo from "../assets/logo.svg";
+import qr from "../assets/qr.png";
 
 const ACServiceInvoice = () => {
   const [previewMode, setPreviewMode] = useState(false);
@@ -418,7 +419,7 @@ const ACServiceInvoice = () => {
         <div className="grid grid-cols-3 gap-8 mb-8 pl-5 pr-5">
         <div>
             {/* payment qr */}
-            <img src="src\assets\qr.png" alt=""  
+            <img src={qr} alt=""  
             className='w-64' />
           </div>
           <div>
